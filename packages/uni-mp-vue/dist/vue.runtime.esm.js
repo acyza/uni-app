@@ -7273,6 +7273,9 @@ function componentUpdateScopedSlotsFn() {
         oldScopedSlotData[index]
       );
       Object.keys(diffScopedSlotData).forEach((name) => {
+        // 支付宝小程序插槽中的事件会反复触发重新渲染
+        if (ctx.$mpPlatform === 'mp-alipay' && /^e/.test(diffScopedSlotData[name])) return;
+
         diffData[diffPath + "." + name] = diffScopedSlotData[name];
       });
     }
