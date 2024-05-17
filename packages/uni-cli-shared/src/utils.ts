@@ -13,6 +13,10 @@ import {
 } from './constants'
 
 import {
+  type Program
+} from '@babel/types'
+
+import {
   type ElementNode,
   NodeTypes,
   type RootNode,
@@ -210,4 +214,27 @@ export function enableSourceMap() {
     process.env.NODE_ENV === 'development' &&
     process.env.UNI_COMPILE_TARGET !== 'uni_modules'
   )
+}
+
+export function parseVueComponentName(file: string, ast: Program) {
+  const exportDefaultDeclaration = ast.body.filter(v => v.type === 'ExportDefaultDeclaration')[0]?.declaration
+  
+  let name = path.basename(removeExt(file))
+
+  if(!exportDefaultDeclaration) return name
+
+  let defineComponentDeclaration = null
+  
+  if(exportDefaultDeclaration.type === 'ObjectExpression'){
+    defineComponentDeclaration = exportDefaultDeclaration
+  }
+  else if (exportDefaultDeclaration.type === 'CallExpression' && exportDefaultDeclaration.callee.name === 'defineComponent') {
+    defineComponentDeclaration = exportDefaultDeclaration.arguments[0]
+  }
+
+  if(!defineComponentDeclaration) return name
+
+  name = defineComponentDeclaration.properties.find(v=>v.key.name === 'name')?.value.value || name
+  
+  return name
 }

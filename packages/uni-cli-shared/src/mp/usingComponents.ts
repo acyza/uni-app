@@ -25,7 +25,7 @@ import { camelize, capitalize, hyphenate } from '@vue/shared'
 import { addLeadingSlash } from '@dcloudio/uni-shared'
 import { M } from '../messages'
 import { BINDING_COMPONENTS, EXTNAME_VUE_RE } from '../constants'
-import { isAppVue, normalizeMiniProgramFilename, removeExt } from '../utils'
+import { isAppVue, normalizeMiniProgramFilename, removeExt, parseVueComponentName } from '../utils'
 import { cleanUrl, parseVueRequest } from '../vite/utils'
 import { addMiniProgramUsingComponents } from '../json/mp/jsonFile'
 
@@ -39,6 +39,7 @@ const scriptDescriptors = new Map<string, ScriptDescriptor>()
 const templateDescriptors = new Map<string, TemplateDescriptor>()
 
 interface MainDescriptor {
+  ast: Program,
   imports: ImportDeclaration[]
   script: string
   template: string
@@ -108,6 +109,7 @@ export async function parseMainDescriptor(
     await parseTemplateDescriptor(filename, ast, { resolve, isExternal: false })
   }
   const descriptor = {
+    ast,
     imports,
     script: script ? parseVueRequest(script).filename : filename,
     template: template ? parseVueRequest(template).filename : filename,
@@ -179,6 +181,8 @@ export async function updateMiniProgramGlobalComponents(
   addMiniProgramUsingComponents(
     'app',
     createUsingComponents(
+      filename,
+      ast,
       bindingComponents,
       imports,
       inputDir,
@@ -191,6 +195,8 @@ export async function updateMiniProgramGlobalComponents(
 }
 
 function createUsingComponents(
+  filename: string,
+  ast: Program,
   bindingComponents: BindingComponents,
   imports: ImportDeclaration[],
   inputDir: string,
@@ -211,6 +217,14 @@ function createUsingComponents(
       )
     }
   })
+
+  const componentName = parseVueComponentName(filename, ast)
+  
+  if (bindingComponents[componentName]) {
+    usingComponents[componentName] = addLeadingSlash(
+      removeExt(normalizeMiniProgramFilename(mainFilename, inputDir))
+    )
+  }
   return usingComponents
 }
 
@@ -247,6 +261,8 @@ export function updateMiniProgramComponentsByMainFilename(
   addMiniProgramUsingComponents(
     removeExt(normalizeMiniProgramFilename(mainFilename, inputDir)),
     createUsingComponents(
+      mainFilename,
+      scriptDescriptor.ast,
       bindingComponents,
       imports,
       inputDir,
